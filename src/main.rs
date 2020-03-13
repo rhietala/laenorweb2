@@ -19,27 +19,47 @@ pub mod models;
 use handlebars::{Helper, Handlebars, Context, RenderContext, Output, HelperResult, JsonRender};
 
 #[derive(Serialize)]
-struct TemplateContext {
+struct IndexTemplateContext {
     title: &'static str,
-    items: Vec<&'static str>,
+    taggroups: Vec<(models::TagGroup, Vec<models::Tag>)>,
     // This key tells handlebars which template is the parent.
     parent: &'static str,
 }
 
 #[database("db")]
-struct VoroveiDb(diesel::PgConnection);
+struct Db(diesel::PgConnection);
 
 #[get("/")]
-fn index() -> Template {
-    Template::render("index", &TemplateContext {
+fn index(conn: Db) -> Template {
+    use schema::taggroups::dsl::*;
+    use schema::tags::dsl::*;
+    let taggroups_and_tags: Vec<(models::TagGroup, models::Tag)> =
+        taggroups.inner_join(tags).load(&*conn).unwrap();
+
+    let mut tgs: Vec<models::TagGroup> =
+        taggroups_and_tags.iter().map(|x| x.clone().0).collect();
+
+    tgs.dedup();
+
+    let tgs_tags: Vec<(models::TagGroup, Vec<models::Tag>)> = tgs
+        .iter()
+        .map(|tg| (
+            tg.clone(),
+            taggroups_and_tags.iter()
+                .filter_map(|x| if &x.0 == tg { Some(x.clone().1) } else { None })
+                .collect()
+        ))
+        .collect();
+
+    Template::render("index", &IndexTemplateContext {
         title: "Hello",
-        items: vec!["One", "Two", "Three"],
+        taggroups: tgs_tags,
         parent: "layout",
     })
 }
 
 #[get("/taggroups")]
-fn taggroups(conn: VoroveiDb) -> Json<Vec<models::TagGroup>> {
+fn taggroups(conn: Db) -> Json<Vec<models::TagGroup>> {
     use schema::taggroups::dsl::*;
     taggroups
         .load::<models::TagGroup>(&*conn)
@@ -48,7 +68,7 @@ fn taggroups(conn: VoroveiDb) -> Json<Vec<models::TagGroup>> {
 }
 
 #[get("/taggroups/<myid>")]
-fn taggroup_by_id(conn: VoroveiDb, myid: String) -> Json<models::TagGroup> {
+fn taggroup_by_id(conn: Db, myid: String) -> Json<models::TagGroup> {
     use schema::taggroups::dsl::*;
     taggroups
         .find(Uuid::parse_str(&myid).unwrap())
@@ -85,7 +105,7 @@ fn rocket() -> rocket::Rocket {
         .mount("/", routes![index, taggroups, taggroup_by_id])
         .mount("/static", StaticFiles::from("static"))
         .register(catchers![not_found])
-        .attach(VoroveiDb::fairing())
+        .attach(Db::fairing())
         .attach(Template::custom(|engines| {
             engines.handlebars.register_helper("wow", Box::new(wow_helper));
         }))
