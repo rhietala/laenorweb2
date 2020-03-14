@@ -100,6 +100,43 @@ fn wow_helper(
     Ok(())
 }
 
+fn color_map_char(c: char) -> String {
+    match c {
+        '!' | '?' | '%' | 't' => format!("<span class=\"white\">{}</span>", c),
+        '#' | '+' | '-' | '|' | '/' | '\\' | '=' | 'C' | 'c' => format!("<span class=\"light_black\">{}</span>", c),
+        'y' | 'z' | 'b' | 'd' => format!("<span class=\"yellow\">{}</span>", c),
+        ',' => format!("<span class=\"light_yellow\">{}</span>", c),
+        '.' | 'F' | 'v' | 'j' => format!("<span class=\"green\">{}</span>", c),
+        'f' => format!("<span class=\"light_green\">{}</span>", c),
+        'V' => format!("<span class=\"red\">{}</span>", c),
+        '@' | 'L' | 'x' | 's' => format!("<span class=\"light_red\">{}</span>", c),
+        'H' | 'h' => format!("<span class=\"magenta\">{}</span>", c),
+        '^' => format!("<span class=\"light_magenta\">{}</span>", c),
+        '~' => format!("<span class=\"blue\">{}</span>", c),
+        'R' | 'r' | 'i' | 'l' => format!("<span class=\"light_blue\">{}</span>", c),
+        'S' | 'w' => format!("<span class=\"cyan\">{}</span>", c),
+        _ => format!("{}", c),
+    }
+}
+
+fn color_map_helper(
+    h: &Helper,
+    _: &Handlebars,
+    _: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output
+) -> HelperResult {
+    if let Some(param) = h.param(0) {
+        &param
+            .value()
+            .render()
+            .chars()
+            .for_each(|c| out.write(&color_map_char(c)).unwrap());
+    }
+
+    Ok(())
+}
+
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
         .mount("/", routes![index, taggroups, taggroup_by_id])
@@ -108,6 +145,7 @@ fn rocket() -> rocket::Rocket {
         .attach(Db::fairing())
         .attach(Template::custom(|engines| {
             engines.handlebars.register_helper("wow", Box::new(wow_helper));
+            engines.handlebars.register_helper("color_map", Box::new(color_map_helper));
         }))
 }
 
