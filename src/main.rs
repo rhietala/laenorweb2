@@ -101,21 +101,28 @@ fn wow_helper(
 }
 
 fn color_map_char(c: char) -> String {
-    match c {
-        '!' | '?' | '%' | 't' => format!("<span class=\"white\">{}</span>", c),
-        '#' | '+' | '-' | '|' | '/' | '\\' | '=' | 'C' | 'c' => format!("<span class=\"light_black\">{}</span>", c),
-        'y' | 'z' | 'b' | 'd' => format!("<span class=\"yellow\">{}</span>", c),
-        ',' => format!("<span class=\"light_yellow\">{}</span>", c),
-        '.' | 'F' | 'v' | 'j' => format!("<span class=\"green\">{}</span>", c),
-        'f' => format!("<span class=\"light_green\">{}</span>", c),
-        'V' => format!("<span class=\"red\">{}</span>", c),
-        '@' | 'L' | 'x' | 's' => format!("<span class=\"light_red\">{}</span>", c),
-        'H' | 'h' => format!("<span class=\"magenta\">{}</span>", c),
-        '^' => format!("<span class=\"light_magenta\">{}</span>", c),
-        '~' => format!("<span class=\"blue\">{}</span>", c),
-        'R' | 'r' | 'i' | 'l' => format!("<span class=\"light_blue\">{}</span>", c),
-        'S' | 'w' => format!("<span class=\"cyan\">{}</span>", c),
-        _ => format!("{}", c),
+    let color = match c {
+        '#' | '+' | '-' |
+        '=' | 'C' | 'c' |
+        '|' | '/' | '\\'      => Some("light_black"),
+        '!' | '?' | '%' | 't' => Some("white"),
+        'y' | 'z' | 'b' | 'd' => Some("yellow"),
+        ','                   => Some("light_yellow"),
+        '.' | 'F' | 'v' | 'j' => Some("green"),
+        'f'                   => Some("light_green"),
+        'V'                   => Some("red"),
+        '@' | 'L' | 'x' | 's' => Some("light_red"),
+        'H' | 'h'             => Some("magenta"),
+        '^'                   => Some("light_magenta"),
+        '~'                   => Some("blue"),
+        'R' | 'r' | 'i' | 'l' => Some("light_blue"),
+        'S' | 'w'             => Some("cyan"),
+        _                     => None,
+    };
+
+    match color {
+        Some(col) => format!("<span class=\"{}\">{}</span>", col, c),
+        None => format!("{}", c),
     }
 }
 
