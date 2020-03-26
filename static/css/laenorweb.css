@@ -35,6 +35,7 @@ html,body {
 
 body {
   background: #272622;
+  color: #4D3A56;
 }
 
 body, html, button, input, select, textarea, pre,
@@ -220,6 +221,9 @@ li.owner:after {
   border: 1px solid #6A784F;
 }
 
+.footer {
+  padding: 0.5em;
+}
 
 .clear {
   float: clear;

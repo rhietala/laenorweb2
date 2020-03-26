@@ -12,11 +12,15 @@ use rocket_contrib::json::Json;
 
 use diesel::prelude::*;
 use uuid::Uuid;
+use chrono::NaiveDateTime;
 
 pub mod schema;
 pub mod models;
 
 use handlebars::{Helper, Handlebars, Context, RenderContext, Output, HelperResult, JsonRender};
+
+#[database("db")]
+struct Db(diesel::PgConnection);
 
 #[derive(Serialize)]
 struct IndexTemplateContext {
@@ -26,13 +30,13 @@ struct IndexTemplateContext {
     parent: &'static str,
 }
 
-#[database("db")]
-struct Db(diesel::PgConnection);
-
 #[get("/")]
 fn index(conn: Db) -> Template {
     use schema::taggroups::dsl::*;
     use schema::tags::dsl::*;
+
+    let _userid = "9e2474d1-5b4e-5a13-ad6d-5022a44f51d9";
+
     let taggroups_and_tags: Vec<(models::TagGroup, models::Tag)> =
         taggroups.inner_join(tags).load(&*conn).unwrap();
 
@@ -54,6 +58,126 @@ fn index(conn: Db) -> Template {
     Template::render("index", &IndexTemplateContext {
         title: "Hello",
         taggroups: tgs_tags,
+        parent: "layout",
+    })
+}
+
+#[derive(Serialize)]
+struct TagTemplateContext {
+    tag: models::Tag,
+    notescount: usize,
+    notes: Vec<TagTemplateNote>,
+    parent: &'static str,
+}
+
+#[derive(Serialize)]
+struct TagTemplateNote {
+    note: models::Note,
+    owner: models::User,
+    tags: Vec<models::Tag>,
+    texts: Vec<(models::NoteText, models::User)>,
+    shared_with: Vec<models::User>,
+    current_text: models::NoteText,
+    updated_at: NaiveDateTime,
+    title: String,
+}
+
+#[get("/tags/<tag_id_param>")]
+fn tag(conn: Db, tag_id_param: String) -> Template {
+
+    let tag_id_uuid = Uuid::parse_str(&tag_id_param).unwrap();
+    let user_id_uuid = Uuid::parse_str("9e2474d1-5b4e-5a13-ad6d-5022a44f51d9").unwrap();
+
+    let tag = {
+        use schema::tags::dsl::*;
+        tags.find(tag_id_uuid).first(&*conn).unwrap()
+    };
+
+    let tag_notes: Vec<TagTemplateNote> = {
+        use schema::notes::dsl::*;
+        use schema::notestags::dsl::*;
+        use schema::notesusers::dsl::*;
+        use schema::users::dsl::*;
+
+        let raw_notes: Vec<(
+            models::Note,
+            models::NoteTag,
+            models::User, // owner of note, for information
+            models::NoteUser // note shared to someone
+        )> = notes
+            .inner_join(notestags)
+            .inner_join(users)
+            .inner_join(notesusers)
+            .filter(tag_id.eq(tag_id_uuid))
+            .filter(user_id.eq(user_id_uuid))
+            .load(&*conn)
+            .unwrap();
+
+        let notes_with_texts = raw_notes
+            .into_iter()
+            .map(|r| {
+                let tags: Vec<models::Tag> = {
+                    use schema::tags::dsl::*;
+                    tags
+                        .filter(id.eq(r.1.tag_id))
+                        .load(&*conn)
+                        .unwrap()
+                };
+
+                let notetexts: Vec<(models::NoteText, models::User)> = {
+                    use schema::notetexts::dsl::*;
+                    use schema::users::dsl::*;
+                    notetexts
+                        .inner_join(users)
+                        .filter(note_id.eq(r.0.id))
+                        .load(&*conn)
+                        .unwrap()
+                };
+
+                let all_tags = tags
+                    .iter()
+                    .map(|t| t.name.clone())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+
+                let title = format!("{} ({})", all_tags, r.2.name);
+
+                let current_text = notetexts.last().unwrap().0.clone();
+                let updated_at = notetexts.last().unwrap().0.created_at.clone();
+
+                let shared_with = {
+                    use schema::notesusers::dsl::*;
+                    use schema::users::dsl::*;
+
+                    users
+                        .inner_join(notesusers.on(id.eq(user_id).and(note_id.eq(r.0.id))))
+                        .load(&*conn)
+                        .unwrap()
+                        .into_iter()
+                        .map(|x: (models::User, models::NoteUser)| x.0)
+                        .collect()
+                };
+
+                TagTemplateNote {
+                    note: r.0,
+                    owner: r.2,
+                    tags: tags,
+                    texts: notetexts,
+                    current_text: current_text,
+                    shared_with: shared_with,
+                    updated_at: updated_at,
+                    title: title,
+                }
+            })
+            .collect();
+
+        notes_with_texts
+    };
+
+    Template::render("tag", &TagTemplateContext {
+        tag: tag,
+        notescount: tag_notes.len(),
+        notes: tag_notes,
         parent: "layout",
     })
 }
@@ -84,22 +208,6 @@ fn not_found(req: &Request) -> Template {
     Template::render("error/404", &map)
 }
 
-fn wow_helper(
-    h: &Helper,
-    _: &Handlebars,
-    _: &Context,
-    _: &mut RenderContext,
-    out: &mut dyn Output
-) -> HelperResult {
-    if let Some(param) = h.param(0) {
-        out.write("<b><i>")?;
-        out.write(&param.value().render())?;
-        out.write("</b></i>")?;
-    }
-
-    Ok(())
-}
-
 fn color_map_char(c: char) -> String {
     let color = match c {
         '#' | '+' | '-' |
@@ -126,6 +234,26 @@ fn color_map_char(c: char) -> String {
     }
 }
 
+fn date_helper(
+    h: &Helper,
+    _: &Handlebars,
+    _: &Context,
+    _: &mut RenderContext,
+    out: &mut dyn Output
+) -> HelperResult {
+    if let Some(param) = h.param(0) {
+        out.write(
+            &param
+                .value()
+                .render()
+                .get(0..10)
+                .unwrap()
+        ).unwrap();
+    }
+
+    Ok(())
+}
+
 fn color_map_helper(
     h: &Helper,
     _: &Handlebars,
@@ -146,12 +274,12 @@ fn color_map_helper(
 
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
-        .mount("/", routes![index, taggroups, taggroup_by_id])
+        .mount("/", routes![index, tag, taggroups, taggroup_by_id])
         .mount("/static", StaticFiles::from("static"))
         .register(catchers![not_found])
         .attach(Db::fairing())
         .attach(Template::custom(|engines| {
-            engines.handlebars.register_helper("wow", Box::new(wow_helper));
+            engines.handlebars.register_helper("date", Box::new(date_helper));
             engines.handlebars.register_helper("color_map", Box::new(color_map_helper));
         }))
 }
