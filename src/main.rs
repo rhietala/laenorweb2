@@ -117,11 +117,16 @@ fn tag(conn: Db, tag_id_param: String) -> Template {
             .into_iter()
             .map(|r| {
                 let tags: Vec<models::Tag> = {
+                    use schema::notestags::dsl::*;
                     use schema::tags::dsl::*;
-                    tags
-                        .filter(id.eq(r.1.tag_id))
+                    notestags
+                        .inner_join(tags)
+                        .filter(note_id.eq(r.1.note_id))
                         .load(&*conn)
                         .unwrap()
+                        .into_iter()
+                        .map(|nt: (models::NoteTag, models::Tag)| nt.1)
+                        .collect::<Vec<models::Tag>>()
                 };
 
                 let notetexts: Vec<(models::NoteText, models::User)> = {
