@@ -1,11 +1,14 @@
-{{#*inline "page"}}
+{{#*inline "title"}}
+laenorweb2 - {{ tag.name }}
+{{/inline}}
 
+{{#*inline "page"}}
 <div class="header note-header">
-  <h1><a href="/">^o^</a> - {{ tag.name }}</h1>
+  <h1><a href="/">l2</a> - {{ tag.name }}</h1>
 </div>
 
 <div class="pure-g">
-  <div class="pure-u-1">
+  <div class="pure-u-1 pure-u-lg-3-5">
     <div class="box note">
       <div>
         Your notebook contains {{ notescount }} lines:<br>
@@ -17,6 +20,11 @@
           {{/each~}}
         </ol>
       </div>
+    </div>
+  </div>
+  <div class="pure-u-1 pure-u-lg-2-5">
+    <div class="box">
+      <button class="pure-button">New note</button>
     </div>
   </div>
 

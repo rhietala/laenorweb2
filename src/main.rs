@@ -150,7 +150,8 @@ fn tag(conn: Db, tag_id_param: String) -> Template {
                     use schema::users::dsl::*;
 
                     users
-                        .inner_join(notesusers.on(id.eq(user_id).and(note_id.eq(r.0.id))))
+                        .inner_join(notesusers)
+                        .filter(note_id.eq(r.0.id))
                         .load(&*conn)
                         .unwrap()
                         .into_iter()
