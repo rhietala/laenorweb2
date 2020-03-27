@@ -39,7 +39,11 @@ fn index(conn: Db) -> Template {
     let _userid = "9e2474d1-5b4e-5a13-ad6d-5022a44f51d9";
 
     let taggroups_and_tags: Vec<(models::TagGroup, models::Tag)> =
-        taggroups.inner_join(tags).load(&*conn).unwrap();
+        taggroups
+        .inner_join(tags)
+        .order((ordering, schema::tags::dsl::name))
+        .load(&*conn)
+        .unwrap();
 
     let mut tgs: Vec<models::TagGroup> =
         taggroups_and_tags.iter().map(|x| x.clone().0).collect();
