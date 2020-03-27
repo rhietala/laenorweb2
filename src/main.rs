@@ -27,6 +27,7 @@ struct IndexTemplateContext {
     title: &'static str,
     taggroups: Vec<(models::TagGroup, Vec<models::Tag>)>,
     // This key tells handlebars which template is the parent.
+    highlights: Vec<models::Tag>,
     parent: &'static str,
 }
 
@@ -55,10 +56,16 @@ fn index(conn: Db) -> Template {
         ))
         .collect();
 
+    let highlights: Vec<models::Tag> = tags
+        .limit(6)
+        .load(&*conn)
+        .unwrap();
+
     Template::render("index", &IndexTemplateContext {
         title: "Hello",
         taggroups: tgs_tags,
         parent: "layout",
+        highlights: highlights
     })
 }
 
