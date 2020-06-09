@@ -6,6 +6,7 @@
 #[macro_use] extern crate serde_derive;
 
 use rocket::Request;
+use rocket::request::{Form, FormError, FormDataError};
 use rocket_contrib::serve::StaticFiles;
 use rocket_contrib::templates::{Template, handlebars};
 use rocket_contrib::json::Json;
@@ -199,6 +200,110 @@ fn tag(conn: Db, tag_id_param: String) -> Template {
     })
 }
 
+#[derive(Serialize)]
+struct NoteTemplateContext {
+    parent: &'static str,
+    taggroups: Vec<(models::TagGroup, Vec<models::Tag>)>,
+    users: Vec<models::User>,
+    note: Option<models::Note>,
+    notetexts: Vec<models::NoteText>
+}
+
+#[get("/note/new")]
+fn new_note(conn: Db) -> Template {
+    use schema::taggroups::dsl::*;
+    use schema::tags::dsl::*;
+    use schema::users::dsl::*;
+
+    let _userid = "9e2474d1-5b4e-5a13-ad6d-5022a44f51d9";
+
+    let taggroups_and_tags: Vec<(models::TagGroup, models::Tag)> =
+        taggroups
+        .inner_join(tags)
+        .order((ordering, schema::tags::dsl::name))
+        .load(&*conn)
+        .unwrap();
+
+    let mut tgs: Vec<models::TagGroup> =
+        taggroups_and_tags.iter().map(|x| x.clone().0).collect();
+
+    tgs.dedup();
+
+    let tgs_tags: Vec<(models::TagGroup, Vec<models::Tag>)> = tgs
+        .iter()
+        .map(|tg| (
+            tg.clone(),
+            taggroups_and_tags.iter()
+                .filter_map(|x| if &x.0 == tg { Some(x.clone().1) } else { None })
+                .collect()
+        ))
+        .collect();
+
+    let us =
+        users
+        .load(&*conn)
+        .unwrap();
+
+    Template::render("note", &NoteTemplateContext {
+        parent: "layout",
+        taggroups: tgs_tags,
+        users: us,
+        note: None,
+        notetexts: vec!(),
+    })
+}
+
+// use rocket::{Data, Outcome, Outcome::*};
+// use rocket::data::{self, FromDataSimple};
+
+// // Always use a limit to prevent DoS attacks.
+// const LIMIT: u64 = 256;
+
+// impl FromDataSimple for Uuid {
+//     type Error = String;
+
+//     fn from_data(req: &Request, data: Data) -> data::Outcome<Self, String> {
+//         // Read the data into a String.
+//         let mut string = String::new();
+//         if let Err(e) = data.open().take(LIMIT).read_to_string(&mut string) {
+//             return Failure((Status::InternalServerError, format!("{:?}", e)));
+//         }
+
+//         // Split the string into two pieces at ':'.
+//         let (name, age) = match string.find(':') {
+//             Some(i) => (string[..i].to_string(), &string[(i + 1)..]),
+//             None => return Failure((Status::UnprocessableEntity, "':'".into()))
+//         };
+
+//         // Parse the age.
+//         let age: u16 = match age.parse() {
+//             Ok(age) => age,
+//             Err(_) => return Failure((Status::UnprocessableEntity, "Age".into()))
+//         };
+
+//         // Return successfully.
+//         Success(Person { name, age })
+//     }
+// }
+
+// #[derive(Debug, FromForm)]
+// struct NewNoteInput<'r> {
+//     #[form(field = "notetext")]
+//     notetext: String,
+//     tags: Uuid,
+// }
+
+// #[post("/", data = "<sink>")]
+// fn sink(sink: Result<Form<NewNoteInput<'_>>, FormError<'_>>) -> String {
+//     match sink {
+//         Ok(form) => format!("{:?}", &*form),
+//         Err(FormDataError::Io(_)) => format!("Form input was invalid UTF-8."),
+//         Err(FormDataError::Malformed(f)) | Err(FormDataError::Parse(_, f)) => {
+//             format!("Invalid form input: {}", f)
+//         }
+//     }
+// }
+
 #[get("/taggroups")]
 fn taggroups(conn: Db) -> Json<Vec<models::TagGroup>> {
     use schema::taggroups::dsl::*;
@@ -291,7 +396,7 @@ fn color_map_helper(
 
 fn rocket() -> rocket::Rocket {
     rocket::ignite()
-        .mount("/", routes![index, tag, taggroups, taggroup_by_id])
+        .mount("/", routes![index, tag, new_note])
         .mount("/static", StaticFiles::from("static"))
         .register(catchers![not_found])
         .attach(Db::fairing())
