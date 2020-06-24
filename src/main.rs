@@ -6,13 +6,11 @@
 #[macro_use] extern crate serde_derive;
 
 use rocket::Request;
-use rocket::request::{Form, FormError, FormDataError};
 use rocket_contrib::serve::StaticFiles;
 use rocket_contrib::templates::{Template, handlebars};
 use rocket_contrib::json::Json;
 
 use diesel::prelude::*;
-use uuid::Uuid;
 use chrono::NaiveDateTime;
 
 pub mod schema;
@@ -95,14 +93,13 @@ struct TagTemplateNote {
 }
 
 #[get("/tags/<tag_id_param>")]
-fn tag(conn: Db, tag_id_param: String) -> Template {
+fn tag(conn: Db, tag_id_param: i32) -> Template {
 
-    let tag_id_uuid = Uuid::parse_str(&tag_id_param).unwrap();
-    let user_id_uuid = Uuid::parse_str("9e2474d1-5b4e-5a13-ad6d-5022a44f51d9").unwrap();
+    let user_id_param = 1;
 
     let tag = {
         use schema::tags::dsl::*;
-        tags.find(tag_id_uuid).first(&*conn).unwrap()
+        tags.find(tag_id_param).first(&*conn).unwrap()
     };
 
     let tag_notes: Vec<TagTemplateNote> = {
@@ -120,8 +117,8 @@ fn tag(conn: Db, tag_id_param: String) -> Template {
             .inner_join(notestags)
             .inner_join(users)
             .inner_join(notesusers)
-            .filter(tag_id.eq(tag_id_uuid))
-            .filter(user_id.eq(user_id_uuid))
+            .filter(tag_id.eq(tag_id_param))
+            .filter(user_id.eq(user_id_param))
             .load(&*conn)
             .unwrap();
 
@@ -214,8 +211,6 @@ fn new_note(conn: Db) -> Template {
     use schema::taggroups::dsl::*;
     use schema::tags::dsl::*;
     use schema::users::dsl::*;
-
-    let _userid = "9e2474d1-5b4e-5a13-ad6d-5022a44f51d9";
 
     let taggroups_and_tags: Vec<(models::TagGroup, models::Tag)> =
         taggroups
@@ -313,15 +308,15 @@ fn taggroups(conn: Db) -> Json<Vec<models::TagGroup>> {
         .unwrap()
 }
 
-#[get("/taggroups/<myid>")]
-fn taggroup_by_id(conn: Db, myid: String) -> Json<models::TagGroup> {
-    use schema::taggroups::dsl::*;
-    taggroups
-        .find(Uuid::parse_str(&myid).unwrap())
-        .get_result::<models::TagGroup>(&*conn)
-        .map(|taggroup| Json(taggroup))
-        .unwrap()
-}
+// #[get("/taggroups/<myid>")]
+// fn taggroup_by_id(conn: Db, myid: String) -> Json<models::TagGroup> {
+//     use schema::taggroups::dsl::*;
+//     taggroups
+//         .find(Uuid::parse_str(&myid).unwrap())
+//         .get_result::<models::TagGroup>(&*conn)
+//         .map(|taggroup| Json(taggroup))
+//         .unwrap()
+// }
 
 #[catch(404)]
 fn not_found(req: &Request) -> Template {

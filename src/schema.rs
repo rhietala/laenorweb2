@@ -1,36 +1,36 @@
 table! {
     notes (id) {
-        id -> Uuid,
-        owner_id -> Uuid,
+        id -> Int4,
+        owner_id -> Int4,
     }
 }
 
 table! {
     notestags (note_id, tag_id) {
-        note_id -> Uuid,
-        tag_id -> Uuid,
+        note_id -> Int4,
+        tag_id -> Int4,
     }
 }
 
 table! {
     notesusergroups (note_id, usergroup_id) {
-        note_id -> Uuid,
-        usergroup_id -> Uuid,
+        note_id -> Int4,
+        usergroup_id -> Int4,
     }
 }
 
 table! {
     notesusers (note_id, user_id) {
-        note_id -> Uuid,
-        user_id -> Uuid,
+        note_id -> Int4,
+        user_id -> Int4,
     }
 }
 
 table! {
     notetexts (id) {
-        id -> Uuid,
-        author_id -> Uuid,
-        note_id -> Uuid,
+        id -> Int4,
+        author_id -> Int4,
+        note_id -> Int4,
         text -> Nullable<Text>,
         created_at -> Timestamp,
     }
@@ -38,7 +38,7 @@ table! {
 
 table! {
     taggroups (id) {
-        id -> Uuid,
+        id -> Int4,
         name -> Text,
         ordering -> Int2,
     }
@@ -46,31 +46,31 @@ table! {
 
 table! {
     tags (id) {
-        id -> Uuid,
+        id -> Int4,
         name -> Text,
         map -> Nullable<Text>,
-        taggroup_id -> Nullable<Uuid>,
+        taggroup_id -> Nullable<Int4>,
     }
 }
 
 table! {
     usergroups (id) {
-        id -> Uuid,
+        id -> Int4,
         name -> Text,
     }
 }
 
 table! {
     users (id) {
-        id -> Uuid,
+        id -> Int4,
         name -> Text,
     }
 }
 
 table! {
     usersusergroups (user_id, usergroup_id) {
-        user_id -> Uuid,
-        usergroup_id -> Uuid,
+        user_id -> Int4,
+        usergroup_id -> Int4,
     }
 }
 
